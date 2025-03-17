@@ -3,13 +3,12 @@ import tweepy
 import random
 import time
 import os
-from collections import deque
 
-# Twitter API credentials (hardcoded for testing; replace with your keys)
-API_KEY = "652Pj9urb9fBEKDK2dnqIiBpJ"
-API_SECRET = "WBcCaoFIK7S909Nes6I0qIWlULreEPd6qKOCtp1Rle5qkjAr8g"
-ACCESS_TOKEN = "1900540762057764864-LrWqvdaLux0Yfr4vxzxfRWekQm45ts"
-ACCESS_TOKEN_SECRET = "GKT53ZyXzPwoEbaUjfMpZeUqBt4eeb3LPFvDmLW6cjhft"
+# Twitter API credentials
+API_KEY = os.getenv("652Pj9urb9fBEKDK2dnqIiBpJ")
+API_SECRET = os.getenv("WBcCaoFIK7S909Nes6I0qIWlULreEPd6qKOCtp1Rle5qkjAr8g")
+ACCESS_TOKEN = os.getenv("1900540762057764864-LrWqvdaLux0Yfr4vxzxfRWekQm45ts")
+ACCESS_TOKEN_SECRET = os.getenv("GKT53ZyXzPwoEbaUjfMpZeUqBt4eeb3LPFvDmLW6cjhft")
 
 # Authenticate with v2 API
 client = tweepy.Client(
@@ -19,7 +18,7 @@ client = tweepy.Client(
     access_token_secret=ACCESS_TOKEN_SECRET
 )
 
-# Existing keywords (~80+)
+# Broad keywords (~80+)
 keywords = [
     "memecoin", "dogecoin", "shib", "meme crypto", "babydoge", "floki", "pepe coin",
     "doge meme", "shiba inu", "mooncoin", "shitcoin", "crypto meme", "meme token",
@@ -38,13 +37,24 @@ keywords = [
     "hidden gem coin"
 ]
 
-# Static trending hashtags (fallback)
+# Trending hashtags (update weekly from x.com/explore)
 trending_hashtags = [
-    "#MemeCoinSZN", "#SolanaSummer", "#RaydiumRocks", "#DegenSZN", "#CryptoMoon",
-    "#BullRun2025", "#AltcoinSeason", "#Web3Vibes", "#NFTs", "#CryptoGems"
+    "#MemeCoinSZN", "#SolanaSummer", "#RaydiumRocks", "#DegenSZN", "#CryptoMoon"
 ]
 
-# Existing dynamic comment components
+# Trending crypto/memecoin topics (update periodically from x.com/explore or news)
+trending_topics = [
+    "Bitcoin hitting 100k soon? #BTC", "Ethereum ETF hype is real #ETH",
+    "Solana memecoins taking over #SOL", "Raydium pumps new tokens #Raydium",
+    "Dogecoin moon rumors again #DOGE", "Shiba Inu burns heating up #SHIB",
+    "Pepe coin flipping the charts #PEPE", "Floki Inu Elon tweet boost #FLOKI",
+    "Bonk coin Solana’s new star #BONK", "Wen moon for memecoins? #Wen",
+    "Pump.fun launches go wild #PumpFun", "Degen trading season is back #Degen",
+    "Microcap gems popping off #LowCap", "Safemoon v2 revival? #Safemoon",
+    "Catcoin claws its way up #Catcoin"
+]
+
+# Dynamic comment components (for bait-and-reply)
 intros = [
     "Yo, just 0.05 SOL", "Only 0.05 SOL", "For a tiny 0.05 SOL", "Drop 0.05 SOL",
     "With a mere 0.05 SOL", "At dirt-cheap 0.05 SOL", "0.05 SOL is all you need",
@@ -79,40 +89,6 @@ boosters = [
     "effortless", "right now", "instantly", "boom"
 ]
 
-# Fetch real-time crypto/memecoin trends and assess dominance
-def fetch_crypto_trends(used_trends):
-    try:
-        # Get trends for worldwide (WOEID 1)
-        trends_response = client.get_place_trends(id=1)
-        trends = trends_response.data[0]["trends"]
-        # Filter for crypto/memecoin relevance
-        crypto_keywords = ["crypto", "memecoin", "coin", "token", "solana", "doge", "shib", "pepe", "pump", "moon", "hodl", "fomo", "btc", "eth"]
-        crypto_trends = [trend["name"] for trend in trends if any(kw in trend["name"].lower() for kw in crypto_keywords)]
-        
-        # Exclude recently used trends
-        available_trends = [trend for trend in crypto_trends if trend not in used_trends]
-        
-        # Calculate crypto dominance (proportion of trends that are crypto-related)
-        total_trends = len(trends)
-        crypto_count = len(crypto_trends)
-        dominance = crypto_count / total_trends if total_trends > 0 else 0
-        
-        if not available_trends:
-            # Fallback to hashtags if no new trends available
-            available_trends = [h for h in trending_hashtags if h not in used_trends]
-            if not available_trends:
-                used_trends.clear()  # Reset if all options exhausted
-                available_trends = trending_hashtags
-        
-        return available_trends, dominance
-    except Exception as e:
-        print(f"Failed to fetch trends: {e}")
-        available_trends = [h for h in trending_hashtags if h not in used_trends]
-        if not available_trends:
-            used_trends.clear()
-            available_trends = trending_hashtags
-        return available_trends, 0  # Assume no dominance on failure
-
 # Generate bait tweet
 def generate_bait_tweet(keyword, hashtag):
     bait_texts = [
@@ -122,27 +98,7 @@ def generate_bait_tweet(keyword, hashtag):
         f"{hashtag} {keyword} to the moon?",
         f"{hashtag} {keyword} pumping hard!"
     ]
-    tweet = random.choice(bait_texts)
-    if len(tweet) > 280:
-        tweet = tweet[:277] + "..."
-    return tweet
-
-# Generate trending topic tweet
-def generate_trending_tweet(trend):
-    phrases = [
-        f"{trend} is buzzing—thoughts?",
-        f"{trend} taking over—bullish or bearish?",
-        f"Hearing {trend} everywhere—who’s riding this?",
-        f"{trend} spiking—next big thing?",
-        f"{trend} vibes—crypto fam, you in?"
-    ]
-    tweet = random.choice(phrases)
-    hashtag = random.choice(trending_hashtags)
-    emoji = random.choice(emojis)
-    full_tweet = f"{tweet} {hashtag} {emoji}"
-    if len(full_tweet) > 280:
-        full_tweet = full_tweet[:277] + "..."
-    return full_tweet
+    return random.choice(bait_texts)
 
 # Generate unique reply comment
 def generate_unique_comment():
@@ -155,9 +111,16 @@ def generate_unique_comment():
     booster = random.choice(boosters)
     return f"{intro} {action} {descriptor}? {hype} {cta} {booster} {emoji}"
 
-# Main bot loop
+# Generate trending topic tweet
+def generate_trending_tweet():
+    topic = random.choice(trending_topics)
+    if len(topic) > 280:
+        topic = topic[:277] + "..."
+    return topic
+
+# Main bot loop (mix bait-and-reply with trending topic posts)
 def run_bot():
-    print("Twitter bot started... Posting real-time trends and bait tweets (v2 only)")
+    print("Twitter bot started... Mixing bait tweets, replies, and trending topics (v2)")
     try:
         user = client.get_me()
         username = user.data.username
@@ -166,48 +129,26 @@ def run_bot():
         print(f"Failed to verify credentials: {e}")
         return
     
-    # Track used trends with a deque (max 20 to avoid repetition)
-    used_trends = deque(maxlen=20)
-    base_trending_prob = 0.6  # Base probability for trending tweets
-    
     while True:
-        # Fetch trends and assess crypto dominance
-        available_trends, crypto_dominance = fetch_crypto_trends(used_trends)
-        
-        # Adjust trending tweet probability based on dominance
-        # If dominance > 0.3 (30% of trends are crypto), scale probability up to 0.9
-        trending_prob = min(base_trending_prob + (crypto_dominance - 0.3) * 2, 0.9) if crypto_dominance > 0.3 else base_trending_prob
-        print(f"Crypto dominance: {crypto_dominance:.2f}, Trending prob: {trending_prob:.2f}")
-        
-        # Decide action based on adjusted probability
-        if random.random() < trending_prob and available_trends:
-            # Post trending topic tweet
-            trend = random.choice(available_trends)
-            trending_tweet = generate_trending_tweet(trend)
-            try:
-                response = client.create_tweet(text=trending_tweet)
-                tweet_id = response.data["id"]
-                used_trends.append(trend)  # Track used trend
-                print(f"Trending tweet posted: {trending_tweet} (ID: {tweet_id})")
-            except Exception as e:
-                print(f"Failed to post trending tweet for {trend}: {e}")
-                time.sleep(60)
-                continue
-        else:
-            # Post bait tweet
+        # Randomly choose: 50% bait-and-reply, 50% trending topic
+        if random.random() < 0.5:  # 50% chance for bait-and-reply
             keyword = random.choice(keywords)
             hashtag = random.choice(trending_hashtags)
+            
+            # Step 1: Post bait tweet
             bait_tweet = generate_bait_tweet(keyword, hashtag)
+            if len(bait_tweet) > 280:
+                bait_tweet = bait_tweet[:277] + "..."
             try:
                 bait_response = client.create_tweet(text=bait_tweet)
                 bait_tweet_id = bait_response.data["id"]
                 print(f"Bait tweet posted: {bait_tweet} (ID: {bait_tweet_id})")
             except Exception as e:
                 print(f"Failed to post bait tweet for {keyword}: {e}")
-                time.sleep(60)
+                time.sleep(60)  # Wait 1 min and retry
                 continue
             
-            # Reply to bait tweet
+            # Step 2: Reply to bait tweet
             comment = generate_unique_comment()
             reply_text = f"@{username} {comment}"
             if len(reply_text) > 280:
@@ -220,9 +161,21 @@ def run_bot():
                 print(f"Replied to {bait_tweet_id}: {reply_text}")
             except Exception as e:
                 print(f"Failed to reply for {keyword}: {e}")
+            
+            print("Posted bait-and-reply pair")
         
-        # Delay: 30-60 min (~36 posts/day)
-        delay = random.randint(1800, 3600)
+        else:  # 50% chance for trending topic tweet
+            trending_tweet = generate_trending_tweet()
+            try:
+                trending_response = client.create_tweet(text=trending_tweet)
+                print(f"Trending topic posted: {trending_tweet} (ID: {trending_response.data['id']})")
+            except Exception as e:
+                print(f"Failed to post trending tweet: {e}")
+                time.sleep(60)  # Wait 1 min and retry
+                continue
+        
+        # Delay to average ~48 posts/day (1,440/month)
+        delay = random.randint(2400, 3000)  # 40-50 min
         print(f"Waiting {delay//60} mins...")
         time.sleep(delay)
 
